@@ -8175,6 +8175,7 @@ function runLcd(FolderShareConnect $server, array $options){
   }
 
   if(is_dir($localPath)) {
+    print($localPath);
     return $localPath;
   }
   else{
@@ -9266,7 +9267,6 @@ function runGet(FolderShareConnect $server, array $options) {
        print("$commandName: " . $e->getMessage() . "\n");
        return FALSE;
      }
-
      if (empty($response) === FALSE) {
        foreach( $response as $r) {
          if (empty($name) && empty($type)) {
@@ -9350,7 +9350,7 @@ function procWildCards($withStars, $withoutStars)
   for ( $i = 1; $i < $stars+1; $i++)
   {
     if ($withStars[$i-1] == "*")
-      $lookup[0][$i] = TRUE;
+      $lookup[0][$i] = $lookup[0][$i-1];
   }
 
   for ($i = 1; $i<=$noStars; $i++)
@@ -9363,9 +9363,9 @@ function procWildCards($withStars, $withoutStars)
       else
       {
         if($withStars[$j-1] == $withoutStars[$i-1])
-          $lookup[$i][$j] == $lookup[$i-1][$j-1];
+          $lookup[$i][$j] = $lookup[$i-1][$j-1];
         else {
-          $lookup[$i][$j] == FALSE;
+          $lookup[$i][$j] = FALSE;
         }
       }
     }
