@@ -748,7 +748,7 @@ EOS
         'brief' => 'Search recursively from file path',
       ],
       '--type' => [
-        'brief' => 'Specify type to search for: file, folder, or rootFolder'
+        'brief' => 'Specify type to search for: file, folder, or rootFolder, or image'
       ],
     ],
     'synonyms' => [],
@@ -2331,7 +2331,7 @@ function runLcd(FolderShareConnect $server, array $options){
   }
 
   if(is_dir($localPath)) {
-    print($localPath);
+    print($localPath . "\n");
     return $localPath;
   }
   else{
@@ -3337,13 +3337,9 @@ function runGet(FolderShareConnect $server, array $options) {
 }
 
 /**
- * Uploads a local file and folder.
+ * Clears the screen
  *
- * This method supports the following flags:
- * | Flag   | Meaning                                          |
- * | ------ | ------------------------------------------------ |
- * | -v     | Show the name of each item modified.             |
- * | --help | Show help on command.                            |
+ * This method supports flags.
  *
  * @param \FolderShare\FolderShareConnect $server
  *   The server connection.
@@ -3355,11 +3351,12 @@ function runGet(FolderShareConnect $server, array $options) {
  *   message has already been output.
  *
  * @internal
- * There is no standard Linux/macOS/BSD command for uploading a file.
+ * Linux, BSD, and macOS "clear" don't support any flags.
  */
- function runCl(FolderShareConnect $server, array $options) {
-   system('clear');
- }
+function runCl(FolderShareConnect $server, array $options) {
+  system('clear');
+}
+
  function runFind(FolderShareConnect $server, array $options) {
    $recurse = FALSE;
    $name = '';
@@ -3528,7 +3525,27 @@ function procWildCards($withStars, $withoutStars)
   }
   return $lookup[$noStars][$stars];
 }
-
+/**
+ * Uploads a local file and folder.
+ *
+ * This method supports the following flags:
+ * | Flag   | Meaning                                          |
+ * | ------ | ------------------------------------------------ |
+ * | -v     | Show the name of each item modified.             |
+ * | --help | Show help on command.                            |
+ *
+ * @param \FolderShare\FolderShareConnect $server
+ *   The server connection.
+ * @param array $options
+ *   The command-line options array.
+ *
+ * @return bool
+ *   Returns TRUE on success, and FALSE on failure. On failure an error
+ *   message has already been output.
+ *
+ * @internal
+ * There is no standard Linux/macOS/BSD command for uploading a file.
+ */
 function runPut(FolderShareConnect $server, array $options){
   $localPath = $options['paths'][0];
   $remotePath = $options['paths'][1];

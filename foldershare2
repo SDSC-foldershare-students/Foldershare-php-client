@@ -17,7 +17,7 @@
  *   src/FolderShareFormat.php
  *   src/foldershare.php
  *
- * Built on: Tue Apr 10 13:08:36 PDT 2018
+ * Built on: Mon Oct 22 17:01:12 DST 2018
  */
 
 
@@ -350,6 +350,23 @@ class FolderShareConnect {
 
   /*--------------------------------------------------------------------
    *
+   * Comment error messages.
+   *
+   *--------------------------------------------------------------------*/
+
+  const ERROR_EMPTY_REMOTE_NAME =
+    "Missing remote item name.";
+  const ERROR_EMPTY_REMOTE_FOLDER_NAME =
+    "Missing remote folder name.";
+  const ERROR_EMPTY_REMOTE_PATH =
+    "Empty remote file or folder path.";
+  const ERROR_EMPTY_LOCAL_PATH =
+    "Empty local file or folder path.";
+  const ERROR_EMPTY_REMOTE_DESTINATION_PATH =
+    "Empty remote destination file or folder path.";
+
+  /*--------------------------------------------------------------------
+   *
    * Fields
    *
    *--------------------------------------------------------------------*/
@@ -547,8 +564,11 @@ class FolderShareConnect {
    */
   public function __construct() {
     if (function_exists('curl_init') === FALSE) {
-      throw new \RuntimeException(
-        "The PHP CURL package is required, but not installed.\nThis application cannot continue without it.");
+      throw new \RuntimeException(<<<'EOS'
+The PHP CURL package is required, but not installed.
+This application cannot continue without it.
+EOS
+        );
     }
 
     $this->authenticationType = self::AUTHENTICATION_NONE;
@@ -1118,24 +1138,23 @@ EOS;
    *   Returns a dummy entity array with well-known fields and no values.
    */
   protected function createDummyEntity() {
+    // The 'name' field is required, but the others are not.
+    // - 'uid'.
+    // - 'created'.
+    // - 'changed'.
+    // - 'description'.
+    // - 'kind'.
+    // - 'mime'.
+    // - 'parentid'.
+    // - 'rootid'.
+    // - 'size'.
+    // - 'file'.
+    // - 'image'.
+    // - 'media'.
+    // - 'grantauthoruids'.
+    // - 'grantviewuids'.
     return [
       'name' => [],
-      /*
-      'uid' => [],
-      'created' => [],
-      'changed' => [],
-      'description' => [],
-      'kind' => [],
-      'mime' => [],
-      'parentid' => [],
-      'rootid' => [],
-      'size' => [],
-      'file' => [],
-      'image' => [],
-      'media' => [],
-      'grantauthoruids' => [],
-      'grantviewuids' => [],
-       */
     ];
   }
 
@@ -1288,13 +1307,17 @@ EOS;
     // Setting COOKIELIST to "ALL" clears all prior cookies.
     $url = $this->hostName . self::URL_GET . '/0?_format=json';
 
-    $options                         = $this->getCommonCurlOptions(FALSE);
+    $options = $this->getCommonCurlOptions(FALSE);
+
     $options[CURLOPT_URL]            = $url;
     $options[CURLOPT_HTTPGET]        = FALSE;
     $options[CURLOPT_CUSTOMREQUEST]  = 'OPTIONS';
     $options[CURLOPT_NOBODY]         = TRUE;
-    $options[CURLOPT_HEADERFUNCTION] = [$this, 'verifyHeaderCallback'];
     $options[CURLOPT_COOKIELIST]     = "ALL";
+    $options[CURLOPT_HEADERFUNCTION] = [
+      $this,
+      'verifyHeaderCallback',
+    ];
 
     curl_reset($this->curlSession);
     curl_setopt_array($this->curlSession, $options);
@@ -1840,7 +1863,7 @@ EOS;
         // The auto index is out of bounds. We've reached the end of
         // automatic authentication type handling.
         $this->authenticationType = self::AUTHENTICATION_NONE;
-        throw new \RuntimeException( <<<'EOS'
+        throw new \RuntimeException(<<<'EOS'
 The login to the host failed.
 The user name and/or password may be incorrect. Please check them for typos. If they appear correct, it is also possible that the host's web services are not configured to support the type of authentication used by this software. Please contact the host's administrator.
 EOS
@@ -1914,8 +1937,10 @@ EOS
         if ($savedException !== NULL) {
           throw $savedException;
         }
+
         return FALSE;
       }
+
       return $this->loginInternal(self::AUTHENTICATION_AUTO, ($autoIndex + 1));
     }
 
@@ -1964,7 +1989,8 @@ EOS
         if ($savedException !== NULL) {
           throw $savedException;
         }
-        throw new \RuntimeException( <<<'EOS'
+
+        throw new \RuntimeException(<<<'EOS'
 The login to the host failed.
 The host is not responding properly to communications requests. This can occur if the host's web services are not enabled. Please contact the host's administrator.
 EOS
@@ -1985,11 +2011,11 @@ EOS
         // Log out in order to clean up state (this may try to send another
         // request, but it won't throw an exception).
         $this->logout();
-        throw new \RuntimeException(
-"The login to the host failed.
-The host is not configured to accept the type of communications done by
-this software. This may be due to a configuration problem with the host's
-web services. Please contact the host's administrator.");
+        throw new \RuntimeException(<<<'EOS'
+The login to the host failed.
+The host is not configured to accept the type of communications done by this software. This may be due to a configuration problem with the host's web services. Please contact the host's administrator.
+EOS
+          );
       }
 
       // Try the next authentication type.
@@ -2043,8 +2069,6 @@ web services. Please contact the host's administrator.");
     // - The host name.
     // - The post web services path.
     // - The return syntax.
-    //http://drupal-8-5-6.dd:8083/user/login?_format=json
-    $this->hostName = clearBackslashes($this->hostName);
     $url = $this->hostName . self::URL_USER_LOGIN . '?_format=json';
 
     //
@@ -2056,7 +2080,8 @@ web services. Please contact the host's administrator.");
     //
     // Setting COOKIEFILE to "" causes CURL to maintain cookies in memory
     // instead of in a file.
-    $options                     = $this->getCommonCurlOptions(FALSE);
+    $options = $this->getCommonCurlOptions(FALSE);
+
     $options[CURLOPT_URL]        = $url;
     $options[CURLOPT_POST]       = 1;
     $options[CURLOPT_POSTFIELDS] = $postText;
@@ -2092,6 +2117,7 @@ web services. Please contact the host's administrator.");
     if (empty($content) === FALSE) {
       $content = json_decode($content, TRUE);
     }
+
     switch ($httpCode) {
       case 200:
         // OK. The request succeeded. Continue.
@@ -2117,21 +2143,23 @@ web services. Please contact the host's administrator.");
           $message = $content['message'];
           if (mb_ereg_search('blocked', $message) === TRUE) {
             // Replace the message with something friendlier.
-            $message = "The login to the host has failed.
-The account may have been blocked. If the account is new, it may not yet have
-been activated. Please contact the host's administrator.";
+            $message = <<<'EOS'
+The login to the host has failed.
+The account may have been blocked. If the account is new, it may not yet have been activated. Please contact the host's administrator.
+EOS;
           }
           elseif (mb_ereg_search('unrecognized', $message) === TRUE) {
-            $message = "The login to the host has failed.
-The user name and/or password may be incorrect. Please check them for typos.";
+            $message = <<<'EOS'
+The login to the host has failed.
+The user name and/or password may be incorrect. Please check them for typos.
+EOS;
           }
         }
         else {
-          $message = "The login to the host has failed.
-The user name and/or password may be incorrect. Please check them for typos.
-If they appear correct, it is also possible that the account has been blocked.
-If the account is new, it may not yet have been activated. Please contact the
-host's administrator.";
+          $message = <<<'EOS'
+The login to the host has failed.
+The user name and/or password may be incorrect. Please check them for typos. If they appear correct, it is also possible that the account has been blocked. If the account is new, it may not yet have been activated. Please contact the host's administrator.
+EOS;
         }
 
         $this->printVerbose("  Server failed with HTTP code $httpCode");
@@ -2152,6 +2180,7 @@ host's administrator.";
         else {
           $message = $this->getNiceHttpErrorMessage($httpCode);
         }
+
         $this->printVerbose("  Server failed with HTTP code $httpCode");
         $this->printVerbose("  $message");
         throw new \RuntimeException($message);
@@ -2235,6 +2264,7 @@ host's administrator.";
           catch (\Exception $e) {
             // Ignore exceptions.
           }
+
           $this->printVerbose("  Logged out");
           break;
       }
@@ -2292,7 +2322,8 @@ host's administrator.";
     // Set up request
     // --------------
     // Get common CURL options and update them with specifics of this request.
-    $options                     = $this->getCommonCurlOptions(FALSE);
+    $options = $this->getCommonCurlOptions(FALSE);
+
     $options[CURLOPT_URL]        = $url;
     $options[CURLOPT_POST]       = 1;
     $options[CURLOPT_POSTFIELDS] = '';
@@ -2418,8 +2449,11 @@ host's administrator.";
     // Check if HTTP GET is supported. This may issue a connection to the
     // server to find out. If that fails, an exception is thrown.
     if ($this->isHttpGetSupported() === FALSE) {
-      throw new \RuntimeException(
-        "The operation cannot be completed.\nThe host does not support requests to get content.");
+      throw new \RuntimeException(<<<'EOS'
+The operation cannot be completed.
+The host does not support requests to get content.
+EOS
+        );
     }
 
     //
@@ -2465,7 +2499,8 @@ host's administrator.";
     //
     // A CSRF token is not required.
     $this->printVerbose("Issuing GET for $operation");
-    $options                     = $this->getCommonCurlOptions(TRUE);
+    $options = $this->getCommonCurlOptions(TRUE);
+
     $options[CURLOPT_URL]        = $url;
     $options[CURLOPT_HTTPGET]    = TRUE;
     $options[CURLOPT_HTTPHEADER] = $headers;
@@ -2583,8 +2618,11 @@ host's administrator.";
     // Check if HTTP DELETE is supported. This may issue a connection to the
     // server to find out. If that fails, an exception is thrown.
     if ($this->isHttpDeleteSupported() === FALSE) {
-      throw new \RuntimeException(
-        "The operation cannot be completed.\nThe host does not support requests to delete content.");
+      throw new \RuntimeException(<<<'EOS'
+The operation cannot be completed.
+The host does not support requests to delete content.
+EOS
+        );
     }
 
     //
@@ -2633,7 +2671,8 @@ host's administrator.";
     //
     // A CSRF token is required.
     $this->printVerbose("Issuing DELETE for $operation");
-    $options                        = $this->getCommonCurlOptions(TRUE);
+    $options = $this->getCommonCurlOptions(TRUE);
+
     $options[CURLOPT_URL]           = $url;
     $options[CURLOPT_CUSTOMREQUEST] = 'DELETE';
     $options[CURLOPT_HTTPHEADER]    = $headers;
@@ -2750,8 +2789,11 @@ host's administrator.";
     // Check if HTTP POST is supported. This may issue a connection to the
     // server to find out. If that fails, an exception is thrown.
     if ($this->isHttpPostSupported() === FALSE) {
-      throw new \RuntimeException(
-        "The operation cannot be completed.\nThe host does not support requests to create or upload new content.");
+      throw new \RuntimeException(<<<'EOS'
+The operation cannot be completed.
+The host does not support requests to create or upload new content.
+EOS
+        );
     }
 
     //
@@ -2803,7 +2845,8 @@ host's administrator.";
     //
     // A CSRF token is required.
     $this->printVerbose("Issuing POST for $operation");
-    $options                      = $this->getCommonCurlOptions(TRUE);
+    $options = $this->getCommonCurlOptions(TRUE);
+
     $options[CURLOPT_URL]         = $url;
     $options[CURLOPT_POST]        = 1;
     $options[CURLOPT_SAFE_UPLOAD] = TRUE;
@@ -2925,8 +2968,11 @@ host's administrator.";
     // Check if HTTP POST is supported. This may issue a connection to the
     // server to find out. If that fails, an exception is thrown.
     if ($this->isHttpPostSupported() === FALSE) {
-      throw new \RuntimeException(
-        "The operation cannot be completed.\nThe host does not support requests to create or upload new content.");
+      throw new \RuntimeException(<<<'EOS'
+The operation cannot be completed.
+The host does not support requests to create or upload new content.
+EOS
+        );
     }
 
     //
@@ -2991,7 +3037,8 @@ host's administrator.";
     //
     // A CSRF token is required.
     $this->printVerbose("Issuing PATCH for $operation");
-    $options                        = $this->getCommonCurlOptions(TRUE);
+    $options = $this->getCommonCurlOptions(TRUE);
+
     $options[CURLOPT_URL]           = $url;
     $options[CURLOPT_CUSTOMREQUEST] = 'PATCH';
     $options[CURLOPT_SAFE_UPLOAD]   = TRUE;
@@ -3119,8 +3166,7 @@ host's administrator.";
     // the path, or of integer entity IDs, must be done on the server.
     if (is_string($entityIdOrPath) === TRUE &&
         empty($entityIdOrPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     //
@@ -3175,8 +3221,7 @@ host's administrator.";
     // the path, or of integer entity IDs, must be done on the server.
     if (is_string($entityIdOrPath) === TRUE &&
         empty($entityIdOrPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     //
@@ -3232,8 +3277,7 @@ host's administrator.";
     // the path, or of integer entity IDs, must be done on the server.
     if (is_string($entityIdOrPath) === TRUE &&
         empty($entityIdOrPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     //
@@ -3288,8 +3332,7 @@ host's administrator.";
     // the path, or of integer entity IDs, must be done on the server.
     if (is_string($entityIdOrPath) === TRUE &&
         empty($entityIdOrPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     //
@@ -3344,8 +3387,7 @@ host's administrator.";
     // the path, or of integer entity IDs, must be done on the server.
     if (is_string($entityIdOrPath) === TRUE &&
         empty($entityIdOrPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     //
@@ -3402,8 +3444,7 @@ host's administrator.";
     // The scheme cannot be empty. Further scheme checking is left to
     // the server.
     if (empty($scheme) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote top-level folder scheme.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     //
@@ -3632,8 +3673,7 @@ host's administrator.";
     // the path, or of integer entity IDs, must be done on the server.
     if (is_string($entityIdOrPath) === TRUE &&
         empty($entityIdOrPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     //
@@ -3682,8 +3722,7 @@ host's administrator.";
     // the path, or of integer entity IDs, must be done on the server.
     if (is_string($entityIdOrPath) === TRUE &&
         empty($entityIdOrPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     //
@@ -3738,8 +3777,7 @@ host's administrator.";
     // the path, or of integer entity IDs, must be done on the server.
     if (is_string($entityIdOrPath) === TRUE &&
         empty($entityIdOrPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     //
@@ -3793,8 +3831,7 @@ host's administrator.";
     // The name cannot be empty. Checking that the name is well formed
     // must be done on the server.
     if (empty($name) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty new remote folder name.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_FOLDER_NAME);
     }
 
     //
@@ -3850,13 +3887,11 @@ host's administrator.";
     // are well formed, and that the path refers to an existing folder must be
     // done on the server.
     if (empty($path) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote parent folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     if (empty($name) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty new remote folder name.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_FOLDER_NAME);
     }
 
     //
@@ -3918,13 +3953,11 @@ host's administrator.";
     // are well formed, and that the path refers to an existing item must be
     // done on the server.
     if (empty($path) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     if (empty($name) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty new remote file or folder name.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_NAME);
     }
 
     //
@@ -3986,8 +4019,7 @@ host's administrator.";
     // field name, and value are well formed, and that the path refers to an
     // existing item must be done on the server.
     if (empty($path) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     if (empty($fieldName) === TRUE) {
@@ -4096,13 +4128,11 @@ host's administrator.";
     // Neither path can be empty. Checking that the paths are well formed
     // and refer to appropriate entities must be done on the server.
     if (empty($fromPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     if (empty($toPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote destination folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_DESTINATION_PATH);
     }
 
     //
@@ -4201,13 +4231,11 @@ host's administrator.";
     // Neither path can be empty. Checking that the paths are well formed
     // and refer to appropriate entities must be done on the server.
     if (empty($fromPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     if (empty($toPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote destination folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_DESTINATION_PATH);
     }
 
     //
@@ -4272,13 +4300,11 @@ host's administrator.";
     // Neither path can be empty. Checking that the remote path is well formed
     // and refers to an appropriate entity must be done on the server.
     if (empty($remotePath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty remote file or folder path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     if (empty($localPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Empty local file path.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_LOCAL_PATH);
     }
 
     //
@@ -4357,12 +4383,16 @@ host's administrator.";
     //
     // A CSRF token is not required.
     $this->printVerbose("Issuing GET for download");
-    $options                         = $this->getCommonCurlOptions(TRUE);
+    $options = $this->getCommonCurlOptions(TRUE);
+
     $options[CURLOPT_URL]            = $url;
     $options[CURLOPT_HTTPGET]        = TRUE;
     $options[CURLOPT_FILE]           = $tmpLocalFile;
     $options[CURLOPT_HTTPHEADER]     = $headers;
-    $options[CURLOPT_HEADERFUNCTION] = [$this, 'downloadHeaderCallback'];
+    $options[CURLOPT_HEADERFUNCTION] = [
+      $this,
+      'downloadHeaderCallback',
+    ];
 
     curl_reset($this->curlSession);
     curl_setopt_array($this->curlSession, $options);
@@ -4535,38 +4565,51 @@ host's administrator.";
     // Neither path can be empty. Checking that the remote path is well formed
     // and refers to an appropriate entity must be done on the server.
     if (empty($remotePath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Programmer error: Empty remote file or folder path for upload.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_REMOTE_PATH);
     }
 
     if (empty($localPath) === TRUE) {
-      throw new \InvalidArgumentException(
-        "Programmer error: Empty local file path for upload.");
+      throw new \InvalidArgumentException(self::ERROR_EMPTY_LOCAL_PATH);
     }
 
     if (file_exists($localPath) === FALSE) {
-      throw new \InvalidArgumentException(
-        "The local file does not exist.\nPlease check your local file path for typos.");
+      throw new \InvalidArgumentException(<<<'EOS'
+The local file does not exist.
+Please check your local file path for typos.
+EOS
+        );
     }
 
     if (is_file($localPath) === FALSE) {
       if (is_dir($localPath) === TRUE) {
-        throw new \InvalidArgumentException(
-          "Uploading directories is not yet supported.\nPlease upload files individually.");
+        throw new \InvalidArgumentException(<<<'EOS'
+Uploading directories is not yet supported.
+Please upload files individually.
+EOS
+          );
       }
 
       if (is_link($localPath) === TRUE) {
-        throw new \InvalidArgumentException(
-          "Uploading symbolilc links is not supported.\nOnly files can be uploaded.");
+        throw new \InvalidArgumentException(<<<'EOS'
+Uploading symbolic links is not supported.
+Only files can be uploaded.
+EOS
+          );
       }
 
-      throw new \InvalidArgumentException(
-        "Uploading devices, sockets, and other special file types is not supported.\nOnly files can be uploaded.");
+      throw new \InvalidArgumentException(<<<'EOS'
+Uploading devices, sockets, and other special file types is not supported.
+Only files can be uploaded.
+EOS
+        );
     }
 
     if (is_readable($localPath) === FALSE) {
-      throw new \InvalidArgumentException(
-        "The local file cannot be read.\nPlease check that you have permission to read the file.");
+      throw new \InvalidArgumentException(<<<'EOS'
+The local file cannot be read.
+Please check that you have permission to read the file.
+EOS
+        );
     }
 
     //
@@ -4580,11 +4623,11 @@ host's administrator.";
     // This form requires cookie authentication and a custom POST process
     // below.
     if ($this->authenticationType !== self::AUTHENTICATION_COOKIE) {
-      throw new \RuntimeException(
-        "File upload is not supported.
-The current connection with the host is not using cookie-based authentication,
-which is required for file uploading. Please contact the host administrator
-to enable cookie-based authentication.");
+      throw new \RuntimeException(<<<'EOS'
+File upload is not supported.
+The current connection with the host is not using cookie-based authentication, which is required for file uploading. Please contact the host administrator to enable cookie-based authentication.
+EOS
+        );
     }
 
     //
@@ -4600,7 +4643,8 @@ to enable cookie-based authentication.");
     // --------------
     // Get common CURL options and update them with specifics of this request.
     $this->printVerbose("Issuing GET for file upload form");
-    $options                  = $this->getCommonCurlOptions(TRUE);
+    $options = $this->getCommonCurlOptions(TRUE);
+
     $options[CURLOPT_URL]     = $url;
     $options[CURLOPT_HTTPGET] = TRUE;
 
@@ -4688,7 +4732,8 @@ to enable cookie-based authentication.");
     // --------------
     // Get common CURL options and update them with specifics of this request.
     $this->printVerbose("Issuing POST for file upload");
-    $options                      = $this->getCommonCurlOptions(TRUE);
+    $options = $this->getCommonCurlOptions(TRUE);
+
     $options[CURLOPT_URL]         = $url;
     $options[CURLOPT_POST]        = 1;
     $options[CURLOPT_SAFE_UPLOAD] = TRUE;
@@ -4762,6 +4807,7 @@ to enable cookie-based authentication.");
   }
 
 }
+
 
 /**
  * Provides static functions that assist in specialized content formatting.
@@ -4981,21 +5027,21 @@ class FolderShareFormat {
    * value is not relevant.
    *
    * This method shows the following values:
-   *   %n = file name
-   *   %s = size
-   *   %b = -
-   *   %f = sharing status
-   *   %u = user ID
-   *   %g = -
-   *   %D = host name
-   *   %i = entity ID
-   *   %h = -
-   *   %t = -
-   *   %T = -
-   *   %X = -
-   *   %Y = time of last modification as a timestamp
-   *   %Z = time of creation as a timestamp
-   *   %o = -
+   * - %n = file name.
+   * - %s = size.
+   * - %b = -.
+   * - %f = sharing status.
+   * - %u = user ID.
+   * - %g = -.
+   * - %D = host name.
+   * - %i = entity ID.
+   * - %h = -.
+   * - %t = -.
+   * - %T = -.
+   * - %X = -.
+   * - %Y = time of last modification as a timestamp.
+   * - %Z = time of creation as a timestamp.
+   * - %o = -.
    *
    * @param array $response
    *   The key-value array response when querying a file or folder.
@@ -5071,10 +5117,10 @@ class FolderShareFormat {
       $response['created'] : '-';
 
     // Virtual fields.
-    $path         = $response['path'];
-    $permission   = $response['sharing-status'];
-    $uid          = $response['user-id'];
-    $accountName  = $response['user-account-name'];
+    $path        = $response['path'];
+    $permission  = $response['sharing-status'];
+    $uid         = $response['user-id'];
+    $accountName = $response['user-account-name'];
 
     // Create formatted dates. While the server provides virtual fields
     // for formatted dates ('changed-date' and 'created-date'), these
@@ -5911,12 +5957,14 @@ const COMMANDS = [
   'version' => [
     'synopsis' => 'version [OPTIONS]',
     'brief' => 'Show version numbers.',
-    'description' =>
-"Show version numbers for client and server software.
+    'description' => <<<'EOS'
+Show version numbers for client and server software.
 
 If a host name is provided, the host is contacted and its software version
 numbers reported along with those for the client software. But if no host
-name is provided, only client software version numbers are reported.",
+name is provided, only client software version numbers are reported.
+EOS
+    ,
     'flags' => [
       '--help' => [
         'brief' => 'Show this help information.',
@@ -5937,8 +5985,8 @@ name is provided, only client software version numbers are reported.",
   'config' => [
     'synopsis' => 'config [OPTIONS]',
     'brief' => 'Show the host administrator configuration.',
-    'description' =>
-"Summarize the administrator configuration settings for the host.
+    'description' => <<<'EOS'
+Summarize the administrator configuration settings for the host.
 
 Reported configuration values include:
   - A list of HTTP verbs supported by the host.
@@ -5951,7 +5999,9 @@ Reported configuration values include:
 This information is primiarily of interest to host administrators and to those
 developing client-server software. The reported values cannot be altered
 through this client software. Administrators may adjust their host's
-configuration using the web interface to the REST and FolderShare modules.",
+configuration using the web interface to the REST and FolderShare modules.
+EOS
+    ,
     'flags' => [
       '--help' => [
         'brief' => 'Show this help information.',
@@ -5975,11 +6025,13 @@ configuration using the web interface to the REST and FolderShare modules.",
   'usage' => [
     'synopsis' => 'usage [OPTIONS]',
     'brief' => 'Show the user\'s storage use.',
-    'description' =>
-"Report the number of top-level folders, subfolders, files, and bytes in use
+    'description' => <<<'EOS'
+Report the number of top-level folders, subfolders, files, and bytes in use
 by the user on the host.
 
-The user must have permission to create and modify remote files and folders.",
+The user must have permission to create and modify remote files and folders.
+EOS
+    ,
     'flags' => [
       '--help' => [
         'brief' => 'Show this help information.',
@@ -6000,8 +6052,8 @@ The user must have permission to create and modify remote files and folders.",
   'stat' => [
     'synopsis' => 'stat [OPTIONS] REMOTE_PATHS...',
     'brief' => 'Show the status of files and folders.',
-    'description' =>
-"Show detailed status for remote files or folders.
+    'description' => <<<'EOS'
+Show detailed status for remote files or folders.
 
 Status information includes the item's name, remote folder path, owner, size,
 MIME type, numeric entity ID, parent entity ID, top-level folder entity ID,
@@ -6013,7 +6065,9 @@ supported.
 
 The user must have permission to view the remote files and folders.
 
-This command is similar to the 'stat' command on Linux, BSD, and macOS.",
+This command is similar to the 'stat' command on Linux, BSD, and macOS.
+EOS
+    ,
     'flags' => [
       '-t' => [
         'brief' => 'Show a terse one-line version of the information.',
@@ -6044,8 +6098,8 @@ This command is similar to the 'stat' command on Linux, BSD, and macOS.",
   'ls' => [
     'synopsis' => 'ls [OPTIONS] REMOTE_PATHS...',
     'brief' => 'List files and folders.',
-    'description' =>
-"List remote files and folders.
+    'description' => <<<'EOS'
+List remote files and folders.
 
 The command supports a default short form and a long form with the '-l' option.
 Both forms default to sorting items by name:
@@ -6057,7 +6111,9 @@ supported.
 
 The user must have permission to view the remote files and folders.
 
-This command is similar to the 'ls' command on Linux, BSD, and macOS.",
+This command is similar to the 'ls' command on Linux, BSD, and macOS.
+EOS
+    ,
     'flags' => [
       '-d' => [
         'brief' => 'List folders without recursion.',
@@ -6099,6 +6155,358 @@ This command is similar to the 'ls' command on Linux, BSD, and macOS.",
     ],
     'defaultFormat' => 'linux',
     'function' => 'runLs',
+  ],
+
+  //
+  // DELETE file or folder.
+  //
+  'rm' => [
+    'synopsis' => 'rm [OPTIONS] REMOTE_PATHS...',
+    'brief' => 'Remove files or folders.',
+    'description' => <<<'EOS'
+Remove remote files and and folders.
+
+Use 'rm' without options to remove remote files. Use 'rm -d' to also remove
+empty folders. Use 'rm -r' to recursively remove files and non-empty folders
+and their contents, recursively.
+
+Paths to remote files and folders must start with '/'. Wild cards are not
+supported.
+
+The user must have permission to remove the remote files and folders.
+
+This command is similar to the 'rm' command on Linux, BSD, and macOS.
+EOS
+    ,
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+      '-d' => [
+        'brief' => 'Delete folders as well as files.',
+        'synonyms' => [],
+      ],
+      '-f' => [
+        'brief' => 'Force deletion to continue even after errors.',
+        'synonyms' => [],
+      ],
+      '-r' => [
+        'brief' => 'Recursively remove folders and their contents.',
+        'synonyms' => [
+          '-R',
+        ],
+      ],
+      '-v' => [
+        'brief' => 'Show the name of each item as it is deleted.',
+        'synonyms' => [],
+      ],
+    ],
+    'synonyms' => [
+      'remove',
+      'del',
+      'delete',
+    ],
+    'formats' => [],
+    'defaultFormat' => '',
+    'function' => 'runRm',
+  ],
+
+  //
+  // DELETE folder.
+  //
+  'rmdir' => [
+    'synopsis' => 'rmdir [OPTIONS] REMOTE_PATHS...',
+    'brief' => 'Remove empty folders.',
+    'description' => <<<'EOS'
+Remove remote empty folders.
+
+Use 'rmdir' to remove remote empty folders. It is an error to attempt to
+remove a non-empty folder.
+
+To remove files and non-empty folders, use the 'rm -r' command instead.
+
+Paths to remote files and folders must start with '/'. Wild cards are not
+supported.
+
+The user must have permission to remove the remote folders.
+
+This command is similar to the 'rmdir' command on Linux, BSD, and macOS.
+EOS
+    ,
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+      '-v' => [
+        'brief' => 'Show the name of each item as it is deleted.',
+        'synonyms' => [],
+      ],
+    ],
+    'formats' => [],
+    'defaultFormat' => '',
+    'function' => 'runRmdir',
+  ],
+
+  //
+  // POST new root folder or subfolder.
+  //
+  'mkdir' => [
+    'synopsis' => 'mkdir [OPTIONS] REMOTE_PATHS...',
+    'brief' => 'Make new folders.',
+    'description' => <<<'EOS'
+Make new remote empty folders.
+
+Paths to remote files and folders must start with '/'. Wild cards are not
+supported.
+
+The user must have permission to create the remote folders.
+
+This command is similar to the 'mkdir' command on Linux, BSD, and macOS.
+EOS
+    ,
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+      '-v' => [
+        'brief' => 'Show the name of each item as it is created.',
+        'synonyms' => [],
+      ],
+    ],
+    'formats' => [
+      'full',
+      'keyvalue',
+    ],
+    'defaultFormat' => 'keyvalue',
+    'function' => 'runMkdir',
+  ],
+
+  //
+  // PATCH name and/or location.
+  //
+  'mv' => [
+    'synopsis' => 'mv [OPTIONS] REMOTE_PATHS... REMOTE_DESTINATION_PATH',
+    'brief' => 'Move files and folders.',
+    'description' => <<<'EOS'
+Move remote files or folders.
+
+The command has two forms:
+  - With two paths, the command moves the file or folder indicated by the
+    first path into the destination selected by the second path.
+
+  - With more than two paths, the command moves the files and folders indicated
+    by all of the paths, except the last, into the destination folder selected
+    by the last path.
+
+With two paths, if the destination does not exist, but its parent folder does,
+the moved item will be moved into the parent and renamed to use the name in
+the destination path.
+
+Paths to remote files and folders must start with '/'. Wild cards are not
+supported.
+
+The user must have permission to modify the remote folders.
+
+This command is similar to the 'mv' command on Linux, BSD, and macOS.
+EOS
+    ,
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+      '-n' => [
+        'brief' => 'Do not overwrite an existing file.',
+        'synonyms' => [],
+      ],
+      '-v' => [
+        'brief' => 'Show the name of each item as it is moved.',
+        'synonyms' => [],
+      ],
+    ],
+    'synonyms' => [
+      'move',
+    ],
+    'formats' => [
+      'full',
+      'keyvalue',
+    ],
+    'defaultFormat' => 'keyvalue',
+    'function' => 'runMv',
+  ],
+
+  //
+  // PATCH to create a copy.
+  //
+  'cp' => [
+    'synopsis' => 'cp [OPTIONS] REMOTE_PATHS... REMOTE_DESTINATION_PATH',
+    'brief' => 'Copy files and folders.',
+    'description' => <<<'EOS'
+Copy remote files or folders.
+
+The command has two forms:
+  - With two paths, the command copies the file or folder indicated by the
+    first path into the destination selected by the second path.
+
+  - With more than two paths, the command copies the files and folders
+    indicated by all of the paths, except the last, into the destination folder
+    selected by the last path.
+
+With two paths, if the destination does not exist, but its parent folder does,
+the copied item will be copied into the parent and renamed to use the name in
+the destination path.
+
+Paths to remote files and folders must start with '/'. Wild cards are not
+supported.
+
+The user must have permission to create and modify the remote files and
+folders.
+
+This command is similar to the 'cp' command on Linux, BSD, and macOS.
+EOS
+    ,
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+      '-n' => [
+        'brief' => 'Do not overwrite an existing file.',
+        'synonyms' => [],
+      ],
+      '-v' => [
+        'brief' => 'Show the name of each item as it is copied.',
+        'synonyms' => [],
+      ],
+    ],
+    'synonyms' => [
+      'copy',
+    ],
+    'formats' => [
+      'full',
+      'keyvalue',
+    ],
+    'defaultFormat' => 'keyvalue',
+    'function' => 'runCp',
+  ],
+
+  //
+  // PATCH to update fields.
+  //
+  'update' => [
+    'synopsis' => 'update [OPTIONS] FIELD_NAME FIELD_VALUE REMOTE_PATHS...',
+    'brief' => 'Update fields on files and folders.',
+    'description' => <<<'EOS'
+Update the value for a named field on remote files or folders.
+
+Fields that may be updated include:
+  - 'name' = the name of the remote file or folder (see also the 'mv' command).
+  - 'description' = the text description of the remote file or folder.
+
+Additional fields may be supported by third-party extensions or customizations
+made on specific hosts.
+
+Field values that are more than one word (such as a description's text) or that
+include special characters (such as in HTML) should be surrounded by quotes.
+
+Paths to remote files and folders must start with '/'. Wild cards are not
+supported.
+
+The user must have permission to modify the remote files and folders.
+EOS
+    ,
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+      '-v' => [
+        'brief' => 'Show the name of each item as it is changed.',
+        'synonyms' => [],
+      ],
+    ],
+    'formats' => [
+      'full',
+      'keyvalue',
+      'text',
+    ],
+    'defaultFormat' => 'text',
+    'function' => 'runUpdate',
+  ],
+
+  //
+  // GET to download file.
+  //
+  'get' => [
+    'synopsis' => 'get [OPTIONS] REMOTE_PATH [LOCAL_PATH]',
+    'brief' => 'Download files and folders.',
+    'description' => <<<'EOS'
+Download a remote file or folder indicated to the local host.
+
+The first path indicates a remote file or folder to download, while the second
+path selects the local host location in which to save the downloaded item. If
+the second path is omitted, the current directory is used and the new local
+file has the same name as the remote file.
+
+When downloading a remote folder, that folder and its contents are first
+compressed into a ZIP archive and that archive is returned as a file saved onto
+the local host. The ZIP archive is not automatically un-zipped.
+
+Paths to remote files and folders must start with '/'. Wild cards are not
+supported.
+
+The user must have permission to view the remote files and folders, and create
+the local file.
+EOS
+    ,
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+      '-v' => [
+        'brief' => 'Show the name of each item as it is downloaded.',
+        'synonyms' => [],
+      ],
+    ],
+    'synonyms' => [
+      'download',
+    ],
+    'formats' => [],
+    'defaultFormat' => '',
+    'function' => 'runGet',
+  ],
+
+  //
+  // POST to upload file.
+  //
+  'put' => [
+    'synopsis' => 'put [OPTIONS] LOCAL_PATH REMOTE_PATH',
+    'brief' => 'Upload files and folders.',
+    'description' => <<<'EOS'
+Upload a local file to a remote folder.
+
+The first path selects a local file to upload, while the second path indicates
+the remote location for the uploaded file.
+
+Paths to remote files and folders must start with '/'. Wild cards are not
+supported.
+
+The user must have permission to view the local file and create the remote
+files and folders.
+EOS
+    ,
+    'flags' => [
+      '--help' => [
+        'brief' => 'Show this help information.',
+      ],
+      '-v' => [
+        'brief' => 'Show the name of each item as it is uploaded.',
+        'synonyms' => [],
+      ],
+    ],
+    'synonyms' => [
+      'upload',
+    ],
+    'formats' => [],
+    'defaultFormat' => '',
+    'function' => 'runPut',
   ],
 
   //
@@ -6242,28 +6650,7 @@ Both forms default to sorting items by name:
     'defaultFormat' => 'linux',
     'function' => 'runPwd',
   ],
-  'whoami' => [
-    'synopsis' => 'whoami',
-    'brief' => 'name of logged in user',
-    'description' =>
-"Displays name of user logged in as",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-    ],
-    'synonyms' => [
 
-    ],
-    'formats' => [
-      'full',
-      'keyvalue',
-      'linux',
-      'text',
-    ],
-    'defaultFormat' => 'linux',
-    'function' => 'whoami',
-  ],
   //
   //prints the local path
   //
@@ -6289,389 +6676,6 @@ Both forms default to sorting items by name:
     'defaultFormat' => 'linux',
     'function' => 'runLpwd',
   ],
-
-  //
-  // DELETE file or folder.
-  //
-  'rm' => [
-    'synopsis' => 'rm [OPTIONS] REMOTE_PATHS...',
-    'brief' => 'Remove files or folders.',
-    'description' =>
-"Remove remote files and and folders.
-
-Use 'rm' without options to remove remote files. Use 'rm -d' to also remove
-empty folders. Use 'rm -r' to recursively remove files and non-empty folders
-and their contents, recursively.
-
-Paths to remote files and folders must start with '/'. Wild cards are not
-supported.
-
-The user must have permission to remove the remote files and folders.
-
-This command is similar to the 'rm' command on Linux, BSD, and macOS.",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-      '-d' => [
-        'brief' => 'Delete folders as well as files.',
-        'synonyms' => [],
-      ],
-      '-f' => [
-        'brief' => 'Force deletion to continue even after errors.',
-        'synonyms' => [],
-      ],
-      '-r' => [
-        'brief' => 'Recursively remove folders and their contents.',
-        'synonyms' => [
-          '-R',
-        ],
-      ],
-      '-v' => [
-        'brief' => 'Show the name of each item as it is deleted.',
-        'synonyms' => [],
-      ],
-    ],
-    'synonyms' => [
-      'remove',
-      'del',
-      'delete',
-    ],
-    'formats' => [],
-    'defaultFormat' => '',
-    'function' => 'runRm',
-  ],
-
-  //
-  // DELETE folder.
-  //
-  'rmdir' => [
-    'synopsis' => 'rmdir [OPTIONS] REMOTE_PATHS...',
-    'brief' => 'Remove empty folders.',
-    'description' =>
-"Remove remote empty folders.
-
-Use 'rmdir' to remove remote empty folders. It is an error to attempt to
-remove a non-empty folder.
-
-To remove files and non-empty folders, use the 'rm -r' command instead.
-
-Paths to remote files and folders must start with '/'. Wild cards are not
-supported.
-
-The user must have permission to remove the remote folders.
-
-This command is similar to the 'rmdir' command on Linux, BSD, and macOS.",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-      '-v' => [
-        'brief' => 'Show the name of each item as it is deleted.',
-        'synonyms' => [],
-      ],
-    ],
-    'formats' => [],
-    'defaultFormat' => '',
-    'function' => 'runRmdir',
-  ],
-
-  //
-  // POST new root folder or subfolder.
-  //
-  'mkdir' => [
-    'synopsis' => 'mkdir [OPTIONS] REMOTE_PATHS...',
-    'brief' => 'Make new folders.',
-    'description' =>
-"Make new remote empty folders.
-
-Paths to remote files and folders must start with '/'. Wild cards are not
-supported.
-
-The user must have permission to create the remote folders.
-
-This command is similar to the 'mkdir' command on Linux, BSD, and macOS.",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-      '-v' => [
-        'brief' => 'Show the name of each item as it is created.',
-        'synonyms' => [],
-      ],
-    ],
-    'formats' => [
-      'full',
-      'keyvalue',
-    ],
-    'defaultFormat' => 'keyvalue',
-    'function' => 'runMkdir',
-  ],
-
-  //
-  // PATCH name and/or location.
-  //
-  'mv' => [
-    'synopsis' => 'mv [OPTIONS] REMOTE_PATHS... REMOTE_DESTINATION_PATH',
-    'brief' => 'Move files and folders.',
-    'description' =>
-"Move remote files or folders.
-
-The command has two forms:
-  - With two paths, the command moves the file or folder indicated by the
-    first path into the destination selected by the second path.
-
-  - With more than two paths, the command moves the files and folders indicated
-    by all of the paths, except the last, into the destination folder selected
-    by the last path.
-
-With two paths, if the destination does not exist, but its parent folder does,
-the moved item will be moved into the parent and renamed to use the name in
-the destination path.
-
-Paths to remote files and folders must start with '/'. Wild cards are not
-supported.
-
-The user must have permission to modify the remote folders.
-
-This command is similar to the 'mv' command on Linux, BSD, and macOS.",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-      '-n' => [
-        'brief' => 'Do not overwrite an existing file.',
-        'synonyms' => [],
-      ],
-      '-v' => [
-        'brief' => 'Show the name of each item as it is moved.',
-        'synonyms' => [],
-      ],
-    ],
-    'synonyms' => [
-      'move',
-    ],
-    'formats' => [
-      'full',
-      'keyvalue',
-    ],
-    'defaultFormat' => 'keyvalue',
-    'function' => 'runMv',
-  ],
-
-  //
-  // PATCH to create a copy.
-  //
-  'clear' => [
-    'synopsis' => 'clear',
-    'brief' => 'clears all current lines.',
-    'description' =>
-"clears the screen.",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Clears Screen.',
-      ],
-    ],
-    'synonyms' => [
-      'cl',
-    ],
-    'formats' => [
-      'full',
-      'keyvalue',
-    ],
-    'defaultFormat' => 'keyvalue',
-    'function' => 'runCl',
-  ],
-  //
-  // PATCH to create a copy.
-  //
-  'cp' => [
-    'synopsis' => 'cp [OPTIONS] REMOTE_PATHS... REMOTE_DESTINATION_PATH',
-    'brief' => 'Copy files and folders.',
-    'description' =>
-"Copy remote files or folders.
-
-The command has two forms:
-  - With two paths, the command copies the file or folder indicated by the
-    first path into the destination selected by the second path.
-
-  - With more than two paths, the command copies the files and folders
-    indicated by all of the paths, except the last, into the destination folder
-    selected by the last path.
-
-With two paths, if the destination does not exist, but its parent folder does,
-the copied item will be copied into the parent and renamed to use the name in
-the destination path.
-
-Paths to remote files and folders must start with '/'. Wild cards are not
-supported.
-
-The user must have permission to create and modify the remote files and
-folders.
-
-This command is similar to the 'cp' command on Linux, BSD, and macOS.",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-      '-n' => [
-        'brief' => 'Do not overwrite an existing file.',
-        'synonyms' => [],
-      ],
-      '-v' => [
-        'brief' => 'Show the name of each item as it is copied.',
-        'synonyms' => [],
-      ],
-    ],
-    'synonyms' => [
-      'copy',
-    ],
-    'formats' => [
-      'full',
-      'keyvalue',
-    ],
-    'defaultFormat' => 'keyvalue',
-    'function' => 'runCp',
-  ],
-  //
-  // PATCH to update fields.
-  //
-  'update' => [
-    'synopsis' => 'update [OPTIONS] FIELD_NAME FIELD_VALUE REMOTE_PATHS...',
-    'brief' => 'Update fields on files and folders.',
-    'description' =>
-"Update the value for a named field on remote files or folders.
-
-Fields that may be updated include:
-  - 'name' = the name of the remote file or folder (see also the 'mv' command).
-  - 'description' = the text description of the remote file or folder.
-
-Additional fields may be supported by third-party extensions or customizations
-made on specific hosts.
-
-Field values that are more than one word (such as a description's text) or that
-include special characters (such as in HTML) should be surrounded by quotes.
-
-Paths to remote files and folders must start with '/'. Wild cards are not
-supported.
-
-The user must have permission to modify the remote files and folders.",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-      '-v' => [
-        'brief' => 'Show the name of each item as it is changed.',
-        'synonyms' => [],
-      ],
-    ],
-    'formats' => [
-      'full',
-      'keyvalue',
-      'text',
-    ],
-    'defaultFormat' => 'text',
-    'function' => 'runUpdate',
-  ],
-  'find' => [
-    'synopsis' => 'find [OPTIONS] REMOTE_PATH',
-    'brief' => 'Search remote filesystem.',
-    'description' => <<<'EOS'
-Searches for files in the foldershare filesystem
-EOS
-    ,
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-      '--name' => [
-        'brief' => 'Specify a string to be searched for',
-      ],
-      '-R' => [
-        'brief' => 'Search recursively from file path',
-      ],
-      '--type' => [
-        'brief' => 'Specify type to search for: file, folder, rootFolder, image'
-      ],
-    ],
-    'synonyms' => [],
-    'formats' => [],
-    'defaultFormat' => 'linux',
-    'function' => 'runFind',
-  ],
-  //
-  // GET to download file.
-  //
-  'get' => [
-    'synopsis' => 'get [OPTIONS] REMOTE_PATH [LOCAL_PATH]',
-    'brief' => 'Download files and folders.',
-    'description' =>
-"Download a remote file or folder indicated to the local host.
-
-The first path indicates a remote file or folder to download, while the second
-path selects the local host location in which to save the downloaded item. If
-the second path is omitted, the current directory is used and the new local
-file has the same name as the remote file.
-
-When downloading a remote folder, that folder and its contents are first
-compressed into a ZIP archive and that archive is returned as a file saved onto
-the local host. The ZIP archive is not automatically un-zipped.
-
-Paths to remote files and folders must start with '/'. Wild cards are not
-supported.
-
-The user must have permission to view the remote files and folders, and create
-the local file.",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-      '-v' => [
-        'brief' => 'Show the name of each item as it is downloaded.',
-        'synonyms' => [],
-      ],
-    ],
-    'synonyms' => [
-      'download',
-    ],
-    'formats' => [],
-    'defaultFormat' => '',
-    'function' => 'runGet',
-  ],
-
-  //
-  // POST to upload file.
-  //
-  'put' => [
-    'synopsis' => 'put [OPTIONS] LOCAL_PATH REMOTE_PATH',
-    'brief' => 'Upload files and folders.',
-    'description' =>
-"Upload a local file to a remote folder.
-
-The first path selects a local file to upload, while the second path indicates
-the remote location for the uploaded file.
-
-Paths to remote files and folders must start with '/'. Wild cards are not
-supported.
-
-The user must have permission to view the local file and create the remote
-files and folders.",
-    'flags' => [
-      '--help' => [
-        'brief' => 'Show this help information.',
-      ],
-      '-v' => [
-        'brief' => 'Show the name of each item as it is uploaded.',
-        'synonyms' => [],
-      ],
-    ],
-    'synonyms' => [
-      'upload',
-    ],
-    'formats' => [],
-    'defaultFormat' => '',
-    'function' => 'runPut',
-  ],
 ];
 
 /*--------------------------------------------------------------------
@@ -6694,7 +6698,7 @@ files and folders.",
  */
 function printCommandLineHelp(string $appPath) {
   $appName = basename($appPath);
-  $helpStart = <<<EOT
+  $helpStart = <<<EOS
 Usage is: $appName [HOST_OPTIONS] [COMMAND] [OPTIONS]
 
 Create, delete, change, and manage files and folders on a remote web site
@@ -6703,9 +6707,9 @@ that uses the FolderShare module.
 Commands
 --------
 
-EOT;
+EOS;
 
-  $helpEnd = <<<EOT
+  $helpEnd = <<<EOS
 
 Add "--help" after any command to show its description and flags.
 
@@ -6764,7 +6768,7 @@ Examples:
   $appName --host myhost ls public:/
   $appName --host myhost ls shared://johnson/
 
-EOT;
+EOS;
 
   $help = $helpStart;
 
@@ -6800,13 +6804,13 @@ EOT;
  *   The path to the application.
  */
 function printPromptHelp(string $appPath) {
-  $helpStart = <<<EOT
+  $helpStart = <<<EOS
 Commands
 --------
 
-EOT;
+EOS;
 
-  $helpEnd = <<<EOT
+  $helpEnd = <<<EOS
 
 Add "--help" after any command to show its description and flags.
 
@@ -6834,7 +6838,7 @@ Examples:
   ls public:/
   ls shared://johnson/
 
-EOT;
+EOS;
 
   $help = $helpStart;
 
@@ -7390,6 +7394,7 @@ function parseCommandFlags(string $appName, string $commandName, array $args, $d
   }
 
   $paths = fixPaths($commandName, $paths, $directory);
+
   //
   // Expand flags
   // ------------
@@ -7455,6 +7460,7 @@ function parseCommandFlags(string $appName, string $commandName, array $args, $d
       }
     }
   }
+
   return [
     'paths' => $paths,
     'flags' => $simplifiedFlags,
@@ -7547,7 +7553,6 @@ function clearBackslashes($input) {
   }
   return $input;
 }
-
 
 /*--------------------------------------------------------------------
  *
@@ -7824,9 +7829,66 @@ function runStat(FolderShareConnect $server, array $options) {
 
   return TRUE;
 }
+/**
+ * Clears the screen
+ *
+ * This method does not have any flags
+ * @param \FolderShare\FolderShareConnect $server
+ *   The server connection.
+ * @param array $options
+ *   The command-line options array.
+ *
+ * @return bool
+ *   Returns TRUE on success, and FALSE on failure. On failure an error
+ *   message has already been output.
+ *
+ * @internal
+ * Linux, BSD, and macOS "clear" don't support any flags.
+ */
 function runCl(FolderShareConnect $server, array $options) {
   system('clear');
 }
+
+/**
+ * Searches for files and folders.
+ *
+ * This command emulates the Linux/macOS/BSD "find" command.
+ *
+ * This method supports the following flags:
+ * | Flag   | Meaning                                          |
+ * | ------ | ------------------------------------------------ |
+ * | --name | The name of a file/folder to search for.         |
+ * | -R     | Search recursively for files from current Dir.   |
+ * | --type | Specify which type (file/folder) to look for     |
+ *
+ *
+ * @param \FolderShare\FolderShareConnect $server
+ *   The server connection.
+ * @param array $options
+ *   The command-line options array.
+ *
+ * @return bool
+ *   Returns TRUE on success, and FALSE on failure. On failure an error
+ *   message has already been output.
+ *
+ * @internal
+ * Linux support the following flags (incomplete):
+ * | Flag   | Meaning                                          |
+ * | ------ | ------------------------------------------------ |
+ * | -P     | Never follow symbolic links.                     |
+ * | -L     | Follow symbolic links.                           |
+ * | -H     | Do not follow symbolic links                     |
+ * | -D     | Print diagnostic information                     |
+ * | -Olevel| Enables query optimisation                       |
+ * | -warn  | Turn warning messages on                         |
+ * | -nowarn| Turn warning messages of                         |
+ * | -depth | Process each directory's content before directory|
+ * | -help  | Print a summary of the command-line usage of find|
+ * | -xdev  | Don't descend directories on other filesystems.  |
+ * | -v     | Print the find version number and exit.          |
+ * | -name  | Base of file name matches shell patterns         |
+ * | -type  | File is of type : b (block), c (character), etc. |
+ */
 function runFind(FolderShareConnect $server, array $options) {
   $recurse = FALSE;
   $name = '';
@@ -7834,12 +7896,20 @@ function runFind(FolderShareConnect $server, array $options) {
   $type = '';
   $foundOutput = [];
   $length = count($options['command']);
-
+  //parse flags & set options (recurse, type, etc.)
   for( $i = 1; $i < $length; $i++) {
     $element = $options['command'][$i];
     switch ($element) {
       case '--type':
-        $type = $options['command'][$i+1];
+        if($options['command'][$i+1] === 'file') {
+          $type = 'file';
+        }
+        if($options['command'][$i+1] === 'folder') {
+          $type = 'folder';
+        }
+        if($options['command'][$i+1] === 'rootfolder') {
+          $type = 'rootFolder';
+        }
         $i++;
         break;
       case '-R':
@@ -7853,12 +7923,12 @@ function runFind(FolderShareConnect $server, array $options) {
         $remotePaths[] = $options['command'][$i];
     }
   }
-  print($name);
-  print($type);
+  //search through file directory
   while (empty($remotePaths) === FALSE) {
+    //check the next path (helps with recursion)
     $remotePath = array_shift($remotePaths);
 
-    // Get the list.
+    // Get the list of files in path
     try {
       switch ($remotePath) {
         case '/':
@@ -7884,6 +7954,7 @@ function runFind(FolderShareConnect $server, array $options) {
       print("$commandName: " . $e->getMessage() . "\n");
       return FALSE;
     }
+    //search for matching output from results
     if (empty($response) === FALSE) {
       foreach( $response as $r) {
         if (empty($name) && empty($type)) {
@@ -7896,7 +7967,7 @@ function runFind(FolderShareConnect $server, array $options) {
           if($r['kind'] === $type && empty($name)) {
             $foundOutput[] = $r;
           }
-          if ($r['kind'] === $type && procWildCards($name,$r['name'])) {
+          if ($r['kind'] === $type && $r['name'] === $name) {
             $foundOutput[] = $r;
           }
         }
@@ -7928,11 +7999,21 @@ function runFind(FolderShareConnect $server, array $options) {
 
     }
   }
+  //set printing patterns
   $formatFlags = [];
   $formatFlags[] = '-l';
-  foreach ($foundOutput as $r)
-    print($r['path'] . "\n");
-  return TRUE;
+  //print response
+  switch ($options['format']) {
+    case 'linux':
+      print(FolderShareFormat::formatAsLinuxLs($foundOutput, $formatFlags));
+      break;
+    case 'text':
+      print(FolderShareFormat::formatAsText($foundOutput));
+      break;
+    default:
+      print_r($response);
+    }
+    return TRUE;
 }
 
 function procWildCards($withStars, $withoutStars)
@@ -7946,6 +8027,7 @@ function procWildCards($withStars, $withoutStars)
  if($withStars == $withoutStars)
    return TRUE;
  $lookup = array();
+ //create a n x m
  //rows 0 to n
  for( $i = 0; $i < $noStars+1; $i++)
  {
@@ -7955,18 +8037,20 @@ function procWildCards($withStars, $withoutStars)
 
   //two empty strings match
  $lookup[0][0] = TRUE;
-
+ //initialize the lookup array
  for ( $i = 1; $i < $stars+1; $i++)
  {
    if ($withStars[$i-1] == "*")
      $lookup[0][$i] = $lookup[0][$i-1];
  }
-
+ //fill the table
  for ($i = 1; $i<=$noStars; $i++)
  {
    for($j = 1; $j<=$stars;$j++)
    {
      //note -1 is there because strings are 0 indexed
+
+     //
      if($withStars[$j-1] == "*")
        $lookup[$i][$j] = $lookup[$i-1][$j] || $lookup[$i][$j-1];
      else
@@ -7979,8 +8063,11 @@ function procWildCards($withStars, $withoutStars)
      }
    }
  }
+ //return whether or not the strings match
  return $lookup[$noStars][$stars];
 }
+
+
 /**
  * Prints a list of files and folders.
  *
@@ -8120,136 +8207,136 @@ function procWildCards($withStars, $withoutStars)
  * | -w     | Force raw printing of non-printable characters.  |
  * | -W     | Show whiteouts when scanning directories.        |
  */
-function runLs(FolderShareConnect $server, array $options) {
-  //
-  // Parse options
-  // -------------
-  // Synonyms have already been mapped to primary flag names.
-  $recurse = FALSE;
-  $formatFlags = [];
+ function runLs(FolderShareConnect $server, array $options) {
+   //
+   // Parse options
+   // -------------
+   // Synonyms have already been mapped to primary flag names.
+   $recurse = FALSE;
+   $formatFlags = [];
 
-  foreach ($options['flags'] as $flagName) {
-    switch ($flagName) {
-      case '-d':
-        $recurse = FALSE;
-        break;
+   foreach ($options['flags'] as $flagName) {
+     switch ($flagName) {
+       case '-d':
+         $recurse = FALSE;
+         break;
 
-      case '-R':
-        $recurse = TRUE;
-        break;
+       case '-R':
+         $recurse = TRUE;
+         break;
 
-      case '-F':
-      case '-i':
-      case '-l':
-      case '-s':
-      case '-S':
-      case '-t':
-        $formatFlags[] = $flagName;
-        break;
-    }
-  }
+       case '-F':
+       case '-i':
+       case '-l':
+       case '-s':
+       case '-S':
+       case '-t':
+         $formatFlags[] = $flagName;
+         break;
+     }
+   }
 
-  //
-  // Validate
-  // --------
-  // If there are no paths given, default to '/'.
-  $remotePaths = $options['paths'];
-  if (empty($remotePaths) === TRUE) {
-    $remotePaths = [$cdPath];
-  }
+   //
+   // Validate
+   // --------
+   // If there are no paths given, default to '/'.
+   $remotePaths = $options['paths'];
+   if (empty($remotePaths) === TRUE) {
+     $remotePaths = ['/'];
+   }
 
-  if ($recurse === TRUE && $options['format'] !== 'linux') {
-    $commandName = reset($options['command']);
-    print("$commandName: Recursive lists must use a 'linux' output format.\n");
-    return FALSE;
-  }
+   if ($recurse === TRUE && $options['format'] !== 'linux') {
+     $commandName = reset($options['command']);
+     print("$commandName: Recursive lists must use a 'linux' output format.\n");
+     return FALSE;
+   }
 
-  //
-  // Execute
-  // -------
-  // Get a list of entities. Format the response using the flags, if any.
-  while (empty($remotePaths) === FALSE) {
-    $remotePath = array_shift($remotePaths);
+   //
+   // Execute
+   // -------
+   // Get a list of entities. Format the response using the flags, if any.
+   while (empty($remotePaths) === FALSE) {
+     $remotePath = array_shift($remotePaths);
 
-    if ($recurse === TRUE) {
-      print("$remotePath:\n");
-    }
+     if ($recurse === TRUE) {
+       print("$remotePath:\n");
+     }
 
-    // Get the list.
-    try {
-      switch ($remotePath) {
-        case '/':
-        case '/private':
-          $response = $server->getRootFolders('private');
-          break;
+     // Get the list.
+     try {
+       switch ($remotePath) {
+         case '/':
+         case '/private':
+           $response = $server->getRootFolders('private');
+           break;
 
-        case '/public':
-          $response = $server->getRootFolders('public');
-          break;
+         case '/public':
+           $response = $server->getRootFolders('public');
+           break;
 
-        case '/shared':
-          $response = $server->getRootFolders('shared');
-          break;
+         case '/shared':
+           $response = $server->getRootFolders('shared');
+           break;
 
-        default:
-          $response = $server->getDescendants($remotePath);
-          break;
-      }
-    }
-    catch (\Exception $e) {
-      $commandName = reset($options['command']);
-      print("$commandName: " . $e->getMessage() . "\n");
-      return FALSE;
-    }
+         default:
+           $response = $server->getDescendants($remotePath);
+           break;
+       }
+     }
+     catch (\Exception $e) {
+       $commandName = reset($options['command']);
+       print("$commandName: " . $e->getMessage() . "\n");
+       return FALSE;
+     }
 
-    // Print the response.
-    if (empty($response) === FALSE) {
-      switch ($options['format']) {
-        case 'linux':
-          print(FolderShareFormat::formatAsLinuxLs($response, $formatFlags));
-          break;
+     // Print the response.
+     if (empty($response) === FALSE) {
+       switch ($options['format']) {
+         case 'linux':
+           print(FolderShareFormat::formatAsLinuxLs($response, $formatFlags));
+           break;
 
-        case 'text':
-          print(FolderShareFormat::formatAsText($response));
-          break;
+         case 'text':
+           print(FolderShareFormat::formatAsText($response));
+           break;
 
-        default:
-          print_r($response);
-      }
-    }
+         default:
+           print_r($response);
+       }
+     }
 
-    // Update the paths array by adding child paths to the front.
-    if ($recurse === TRUE) {
-      $recursePaths = [];
-      if (is_array($response) === TRUE) {
-        // Loop through the response and create a path for each folder item.
-        foreach ($response as $r) {
-          if (isset($r['path']) === TRUE && isset($r['kind']) === TRUE) {
-            $k = $r['kind'];
-            if ($k === 'folder' || $k === 'rootfolder') {
-              if (substr($remotePath, -1) === "/") {
-                $recursePaths[] = $remotePath . $r['name'];
-              }
-              else {
-                $recursePaths[] = $remotePath . "/" . $r['name'];
-              }
-            }
-          }
-        }
-      }
+     // Update the paths array by adding child paths to the front.
+     if ($recurse === TRUE) {
+       $recursePaths = [];
+       if (is_array($response) === TRUE) {
+         // Loop through the response and create a path for each folder item.
+         foreach ($response as $r) {
+           if (isset($r['path']) === TRUE && isset($r['kind']) === TRUE) {
+             $k = $r['kind'];
+             if ($k === 'folder' || $k === 'rootfolder') {
+               if (substr($remotePath, -1) === "/") {
+                 $recursePaths[] = $remotePath . $r['name'];
+               }
+               else {
+                 $recursePaths[] = $remotePath . "/" . $r['name'];
+               }
+             }
+           }
+         }
+       }
 
-      // Add recursion paths to the front of the path list.
-      // This causes us to do a depth-first traversal.
-      $remotePaths = array_merge($recursePaths,$remotePaths);
+       // Add recursion paths to the front of the path list.
+       // This causes us to do a depth-first traversal.
+       $remotePaths = array_merge($recursePaths,$remotePaths);
 
-      if (empty($remotePaths) === FALSE) {
-        print("\n");
-      }
-    }
-  }
+       if (empty($remotePaths) === FALSE) {
+         print("\n");
+       }
+     }
+   }
 
-  return TRUE;
-}
+   return TRUE;
+ }
 
 /**
  * Prints a list of local files and folders.
@@ -8330,7 +8417,6 @@ function runLcd(FolderShareConnect $server, array $options){
   }
 
   if(is_dir($localPath)) {
-    print($localPath . "\n");
     return $localPath;
   }
   else{
@@ -8339,9 +8425,7 @@ function runLcd(FolderShareConnect $server, array $options){
     return $options['directory'][1];
   }
 }
-function whoami(FolderShare $server, array $options) {
-  print($options['username']);
-}
+
 /**
  * Prints the remote path
  */
@@ -8356,7 +8440,7 @@ function runLpwd(FolderShareConnect $server, array $options){
   echo $options['directory'][1]."\n";
 }
 
- /**
+/**
  * Deletes files and folders.
  *
  * This command emulates the Linux/macOS/BSD "rm" command.
@@ -8644,8 +8728,8 @@ function runRmdir(FolderShareConnect $server, array $options) {
  * | --verbose | Same as -v.                                   |
  * | --version | Show version information.                     |
  */
-
 function runMkdir(FolderShareConnect $server, array $options) {
+  //
   // Parse options
   // -------------
   // Synonyms have already been mapped to primary flag names.
@@ -8797,6 +8881,7 @@ function runMv(FolderShareConnect $server, array $options) {
   // Synonyms have already been mapped to primary flag names.
   $verbose = FALSE;
   $overwrite = TRUE;
+
   foreach ($options['flags'] as $flagName) {
     switch ($flagName) {
       case '-n':
@@ -8850,6 +8935,7 @@ function runMv(FolderShareConnect $server, array $options) {
     if ($verbose === TRUE) {
       print("$remotePath\n");
     }
+
     try {
       // There is normally no response.
       $response = $server->move($remotePath, $destinationPath, $overwrite);
@@ -9025,7 +9111,6 @@ function runCp(FolderShareConnect $server, array $options) {
       print("$remotePath\n");
     }
 
-    //Use the current cdPath to update the remotePath
     try {
       // There is normally no response.
       $response = $server->copy($remotePath, $destinationPath, $overwrite);
@@ -9164,10 +9249,6 @@ function runCp(FolderShareConnect $server, array $options) {
  *   the name of a field, the value, and a list of files. We use
  *   that same form.
  */
-function runUpdate1(FolderShareConnect $server, array $options){
-  print_r($options);
-}
-
 function runUpdate(FolderShareConnect $server, array $options) {
   //
   // Parse options
@@ -9356,158 +9437,155 @@ function runGet(FolderShareConnect $server, array $options) {
  * @internal
  * There is no standard Linux/macOS/BSD command for uploading a file.
  */
-function runPut(FolderShareConnect $server, array $options){
-  $localPath = $options['paths'][0];
-  $remotePath = $options['paths'][1];
+ function runPut(FolderShareConnect $server, array $options){
+   $localPath = $options['paths'][0];
+   $remotePath = $options['paths'][1];
 
-  $options['paths'][0] = $localPath;
-  $options['paths'][1] = $remotePath;
+   $options['paths'][0] = $localPath;
+   $options['paths'][1] = $remotePath;
 
-  //if the first input is a directory, calls the recursive loop method
-  //uploads a folder and its contents
-  if(is_dir($options['paths'][0])) {
-    loop($options['paths'][0].'/',
-    $options['paths'][1].'/'.basename($options['paths'][0], ""),
-    $server,
-    $options);
-  }
+   //if the first input is a directory, calls the recursive loop method
+   //uploads a folder and its contents
+   if(is_dir($options['paths'][0])) {
+     loop($options['paths'][0].'/',
+     $options['paths'][1].'/'.basename($options['paths'][0], ""),
+     $server,
+     $options);
+   }
 
-  //if the first input is a file, calls the runPutFile method
-  //uploads a file
-  else{
-    runPutFile($server, $options);
-  }
+   //if the first input is a file, calls the runPutFile method
+   //uploads a file
+   else{
+     runPutFile($server, $options);
+   }
 
-}
-
-
-//checks if a $haystack ends with $needle
-function endsWith($haystack, $needle) {
-  return substr($haystack, -strlen($needle))===$needle;
-}
+ }
 
 
-function loop($dir, $newPath, FolderShareConnect $server, array $options){
-  //calls the putDir method to make a new directory
-  putDir($newPath, $server, $options);
-
-  //creates an array of all items in the directory
-  $ffs = scandir($dir);
-  unset($ffs[array_search('.', $ffs, true)]);
-  unset($ffs[array_search('..', $ffs, true)]);
-
-  // prevent empty ordered elements
-  if (count($ffs) < 1)
-  return;
-
-  //loops through each item in the directory
-  foreach($ffs as $ff){
-
-    //checks if the item is a directory
-    if(is_dir($dir.$ff)) {
-      //if the item is a directory, calls the loop method again with that item
-      loop($dir.$ff.'/', $newPath.'/'.$ff, $server, $options);
-    }
-    else if(strcmp($ff, ".DS_Store")!=0) {
-      //if the item is a file, uploads that item
-      putFile($dir.$ff, $newPath, $server, $options);
-    }
-  }
-}
+ //checks if a $haystack ends with $needle
+ function endsWith($haystack, $needle) {
+   return substr($haystack, -strlen($needle))===$needle;
+ }
 
 
-//uses mkDir to make a directory for the "loop" method
-function putDir($path, FolderShareConnect $server, array $options) {
-  echo "mkdir ".$path."\r\n";
+ function loop($dir, $newPath, FolderShareConnect $server, array $options){
+   //calls the putDir method to make a new directory
+   putDir($newPath, $server, $options);
 
-  //updates the $options array to match runMkdir's inputs
-  //the error is that format should be enclosed in quotes
-  $inputArr = $options;
-  $inputArr['format'] = 'keyvalue';
-  $inputArr['command'] = array('mkdir', $path);
-  $inputArr['paths'] = array($path);
-  runMkdir($server, $inputArr);
-}
+   //creates an array of all items in the directory
+   $ffs = scandir($dir);
+   unset($ffs[array_search('.', $ffs, true)]);
+   unset($ffs[array_search('..', $ffs, true)]);
+
+   // prevent empty ordered elements
+   if (count($ffs) < 1)
+   return;
+
+   //loops through each item in the directory
+   foreach($ffs as $ff){
+
+     //checks if the item is a directory
+     if(is_dir($dir.$ff)) {
+       //if the item is a directory, calls the loop method again with that item
+       loop($dir.$ff.'/', $newPath.'/'.$ff, $server, $options);
+     }
+     else if(strcmp($ff, ".DS_Store")!=0) {
+       //if the item is a file, uploads that item
+       putFile($dir.$ff, $newPath, $server, $options);
+     }
+   }
+ }
 
 
-//uses putFile to make a directory for the "loop" method
-function putFile($path1, $path2, FolderShareConnect $server, array $options) {
-  echo "putFile ".$path1." ".$path2."\r\n";
+ //uses mkDir to make a directory for the "loop" method
+ function putDir($path, FolderShareConnect $server, array $options) {
+   echo "mkdir ".$path."\r\n";
 
-  //updates the $options array to match runPutFile's inputs
-  $inputArr = $options;
-  $inputArr['format'] = '';
-  $inputArr['command'] = array('put', "$path1", "$path2");
-  $inputArr['paths'] = array($path1, $path2);
-  runPutFile($server, $inputArr);
-}
+   //updates the $options array to match runMkdir's inputs
+   $inputArr = $options;
+   $inputArr[format] = 'keyvalue';
+   $inputArr[command] = array('mkdir', $path);
+   $inputArr[paths] = array($path);
+   runMkdir($server, $inputArr);
+ }
 
 
-function runPutFile(FolderShareConnect $server, array $options) {
-  //
-  // Parse options
-  // -------------
-  // Synonyms have already been mapped to primary flag names.
-  $verbose = FALSE;
+ //uses putFile to make a directory for the "loop" method
+ function putFile($path1, $path2, FolderShareConnect $server, array $options) {
+   //updates the $options array to match runPutFile's inputs
+   $inputArr = $options;
+   $inputArr[format] = '';
+   $inputArr[command] = array('put', "$path1", "$path2");
+   $inputArr[paths] = array($path1, $path2);
+   runPutFile($server, $inputArr);
+ }
 
-  foreach ($options['flags'] as $flagName) {
-    switch ($flagName) {
-      case '-v':
-        $verbose = TRUE;
-        break;
-    }
-  }
 
-  //
-  // Validate
-  // --------
-  // The command must have exactly two paths. The first is a path to a local
-  // file and the second is a path to a server parent folder.
-  switch (count($options['paths'])) {
-    case 0:
-      $commandName = reset($options['command']);
-      print("$commandName: Missing local and remote file paths.\n");
-      return FALSE;
+ function runPutFile(FolderShareConnect $server, array $options) {
+   //
+   // Parse options
+   // -------------
+   // Synonyms have already been mapped to primary flag names.
+   $verbose = FALSE;
 
-    case 1:
-      $commandName = reset($options['command']);
-      print("$commandName: Missing remote file path.\n");
-      return FALSE;
+   foreach ($options['flags'] as $flagName) {
+     switch ($flagName) {
+       case '-v':
+         $verbose = TRUE;
+         break;
+     }
+   }
 
-    case 2:
-      $localPath = $options['paths'][0];
-      $remotePath = $options['paths'][1];
-      break;
+   //
+   // Validate
+   // --------
+   // The command must have exactly two paths. The first is a path to a local
+   // file and the second is a path to a server parent folder.
+   switch (count($options['paths'])) {
+     case 0:
+       $commandName = reset($options['command']);
+       print("$commandName: Missing local and remote file paths.\n");
+       return FALSE;
 
-    default:
-      $commandName = reset($options['command']);
-      print("$commandName: Too many file paths.\n");
-      return FALSE;
-  }
+     case 1:
+       $commandName = reset($options['command']);
+       print("$commandName: Missing remote file path.\n");
+       return FALSE;
 
-  //
-  // Execute
-  // -------
-  // Upload the file.
-  try {
-    if ($verbose === TRUE) {
-      print("$localPath\n");
-    }
+     case 2:
+       $localPath = $options['paths'][0];
+       $remotePath = $options['paths'][1];
+       break;
 
-    // There is normally no response.
-    $response = $server->upload($localPath, $remotePath);
-    if (empty($response) === FALSE) {
-      print_r($response);
-    }
-  }
-  catch (\Exception $e) {
-    $commandName = reset($options['command']);
-    print("$commandName: " . $e->getMessage() . "\n");
-    return FALSE;
-  }
+     default:
+       $commandName = reset($options['command']);
+       print("$commandName: Too many file paths.\n");
+       return FALSE;
+   }
 
-  return TRUE;
-}
+   //
+   // Execute
+   // -------
+   // Upload the file.
+   try {
+     if ($verbose === TRUE) {
+       print("$localPath\n");
+     }
+
+     // There is normally no response.
+     $response = $server->upload($localPath, $remotePath);
+     if (empty($response) === FALSE) {
+       print_r($response);
+     }
+   }
+   catch (\Exception $e) {
+     $commandName = reset($options['command']);
+     print("$commandName: " . $e->getMessage() . "\n");
+     return FALSE;
+   }
+
+   return TRUE;
+ }
 
 /*--------------------------------------------------------------------
  *
@@ -9567,7 +9645,7 @@ catch (\Exception $e) {
   printErrorAndExit($appName, $e->getMessage());
 }
 
-$options['directory'] = ['', ''];
+$opstions['directory'] = ['', ''];
 
 //
 // Execute single command
@@ -9587,7 +9665,7 @@ if (empty($options['command']) === FALSE) {
   }
 
   if (in_array('--help', $options['flags']) === TRUE) {
-    printCommandHelp($appName, $options['command']);
+    printCommandHelp($appName, $options['command'][0]);
     exit(0);
   }
 
@@ -9613,25 +9691,24 @@ if (empty($options['command']) === FALSE) {
   }
 }
 
-//Tab Complete Script
 function tab($input1, $index){
+
   $line1 = "";
   global $options;
   $p = $options['directory'][0];
-  /*if(strpos($input, $p) === False) {
-    $input1 = $p."/";
-  }*/
   $input = $input1;
+
   /*if($input[mb_strlen($input)-1] === '/' And mb_strlen($input) > 1){
     $input = mb_substr(0, mb_strlen($input)-1);
   }*/
 
-  if(empty($input) Or $input[0] !== '/'){
+  if($input[0] !== '/'){
     $line1 = $p."/".$input;
   }
   else{
     $line1 = $input;
   }
+
   $lastSlashPosition = mb_strrpos($line1, '/');
   if ($lastSlashPosition === FALSE) {
     $lastSlashPosition = -1;
@@ -9650,6 +9727,7 @@ function tab($input1, $index){
     $parent = mb_substr($line1, 0, $lastSlashPosition);
     $filename = basename($line1);
   }
+
   global $options;
 
   $localOptions = $options;
@@ -9703,30 +9781,29 @@ function tab($input1, $index){
   if($response !== NULL){
     $response = FolderShareFormat::formatAsLinuxLs($response, $formatFlags);
   }
-  $length = strlen($response);
 
+  $length = strlen($response);
   $parts = preg_split('/ {2}/', $response);
-  //$parts = array_map("trim",$parts);
-  if($parent !== "/") {
-    if(strpos($parts[count($parts)-1],' ') === 0 Or $parts[count($parts)-1] === ''){
-      if([count($parts)>1]){
-        unset($parts[count($parts)-1]);
-        }
-      }
+
+  if(strpos($parts[count($parts)-1],' ') === 0 Or $parts[count($parts)-1] === ''){
+    if([count($parts)>1]){
+      unset($parts[count($parts)-1]);
+    }
   }
+
   for ($i=count($parts)-1; $i>=0; $i--){
     if($parts[$i] === ''){
       unset($parts[$i]);
     }
   }
   array_values($parts);
-  //$parts = array_map("trim",$parts);
 
   if($parent !== '/'){
     $parent .= '/';
   }
+
   foreach ($parts as $part){
-    while(strlen($part) != 0 And ($part[count($part)-1] === ' ' Or $part[count($part)-1] === "\n")){
+    while($part[count($part)-1] === ' ' Or $part[count($part)-1] === "\n"){
       $part = ltrim($part);
       $part = rtrim ($part);
     }
@@ -9739,7 +9816,8 @@ function tab($input1, $index){
         $Matches[] = $parent.$part;
       }
       else if($p !== '/'){
-        if(empty($input1) Or $input1[0] == '/'){
+
+        if($input1[0] == '/'){
           $Matches[] = $parent.$part;
         }
         else{
@@ -9783,32 +9861,18 @@ function tab($input1, $index){
     }
 
   }
-  if(isset($Matches) And count($Matches) == 0){
+  if(count($Matches) == 0){
     $Matches[] = rtrim(ltrim($input));
   }
-  #print_r($Matches);
-  if (!isset($Matches)) {
-    return $arr[] = "";
-  }
-  if($parent != '/') {
-    foreach($Matches as $Match) {
-      if (strpos($Match,'/') !== false) {
-        unset($Matches[array_search($Match,$Matches)]);
-      }
-    }
-  }
+
   return($Matches);
 }
-//callback function used by tab
-function spaces($var) {
-  return($var !== "");
-}
+
 //
 // Execute multiple commands
 // -------------------------
 // Enter a prompt loop and execute commands as given.
 print("Foldershare shell.\nType 'help' for a list of commands, 'quit' to exit.\n");
-
 readline_completion_function("tab");
 while (TRUE) {
   try {
@@ -9816,10 +9880,7 @@ while (TRUE) {
     // Prompt
     // ------
     // Get a single line of input.
-    if ($options['directory'][0] == "")
-      $prompt = "$appName>";
-    else
-      $prompt = "$appName {$options['directory'][0]}>";
+    $prompt = "$appName> ";
     if (PHP_OS === 'WINNT') {
       $line = stream_get_line(STDIN, 1024, PHP_EOL);
     }
@@ -9890,17 +9951,17 @@ while (TRUE) {
     // - Check that there is a function for the command.
     // - Check that the return format is supported.
     // - Check that the given flags make sense.
-
     if (validateCommand($localOptions, FALSE) === FALSE) {
       continue;
     }
-    $commandName = reset($localOptions['command']);
 
+    $commandName = reset($localOptions['command']);
 
     if (in_array('--help', $localOptions['flags']) === TRUE) {
       printCommandHelp($appName, $commandName);
       continue;
     }
+
     // Set the preferred return format.
     if ($localOptions['format'] === 'linux' ||
         $localOptions['format'] === 'text') {
